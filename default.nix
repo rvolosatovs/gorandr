@@ -4,6 +4,7 @@ buildGoPackage rec {
   name = "gorandr";
 
   goPackagePath = "github.com/rvolosatovs/gorandr";
+  subPackages = [ "cmd/randrq" ];
 
   src = ./.;
 
