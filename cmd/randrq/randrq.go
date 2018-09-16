@@ -16,7 +16,7 @@ import (
 	"github.com/rvolosatovs/gorandr"
 )
 
-const DefaultTemplate = "{{.Name}}:{{.Width}}x{{.Height}}+{{.X}}+{{.Y}}"
+const DefaultTemplate = "{{.Name}}:{{.Width}}x{{.Height}}"
 
 var (
 	printJSON = flag.Bool("json", false, "Print data as JSON")
@@ -43,11 +43,16 @@ func main() {
 			return errors.Wrap(err, "failed to get screen resources")
 		}
 
+		modes := make(map[randr.Mode]randr.ModeInfo, len(res.Modes))
+		for _, mi := range res.Modes {
+			modes[randr.Mode(mi.Id)] = mi
+		}
+
 		outs := make([]*gorandr.Output, 0, len(res.Outputs))
 		for _, o := range res.Outputs {
 			oi, err := randr.GetOutputInfo(conn, o, 0).Reply()
 			if err != nil {
-				return errors.Wrapf(err, "failed to get info of output %d", o)
+				return errors.Wrapf(err, "failed to get info of output %s", oi.Name)
 				continue
 			}
 
@@ -55,24 +60,28 @@ func main() {
 				continue
 			}
 
-			ci, err := randr.GetCrtcInfo(conn, oi.Crtc, 0).Reply()
-			if err != nil {
-				log.Printf("Failed to get crtc info of output %d: %s", o, err)
+			if len(oi.Modes) < 1 {
+				log.Printf("Output %s has no modes defined", oi.Name)
 				continue
 			}
 
+			mi := modes[oi.Modes[0]]
+			for _, m := range oi.Modes {
+				info := modes[m]
+				if uint64(info.Width)*uint64(info.Height) > uint64(mi.Width)*uint64(mi.Height) {
+					mi = info
+					continue
+				}
+			}
+
 			outs = append(outs, &gorandr.Output{
-				Name:      string(oi.Name),
-				MmWidth:   oi.MmWidth,
-				MmHeight:  oi.MmHeight,
-				X:         ci.X,
-				Y:         ci.Y,
-				Width:     ci.Width,
-				Height:    ci.Height,
-				Rotation:  ci.Rotation,
-				Rotations: ci.Rotations,
-				Length:    ci.Length,
-				Area:      uint64(ci.Width) * uint64(ci.Height),
+				Name:     string(oi.Name),
+				MmWidth:  oi.MmWidth,
+				MmHeight: oi.MmHeight,
+				Length:   oi.Length,
+				Width:    mi.Width,
+				Height:   mi.Height,
+				Area:     uint64(mi.Width) * uint64(mi.Height),
 			})
 		}
 

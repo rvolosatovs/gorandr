@@ -1,4 +1,4 @@
-with import <nixpkgs>{};
+{ stdenv, buildGoPackage }:
 
 buildGoPackage rec {
   name = "gorandr";
